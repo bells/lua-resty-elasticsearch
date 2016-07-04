@@ -1,4 +1,5 @@
 local http = require "resty.http"
+local cjson = require "cjson"
 
 local string = string
 
@@ -41,8 +42,16 @@ function _M._perform_request(self, http_method, url, params, body)
     if res.has_body then
        body = res:read_body() 
     end
-	return res.stauts, body 
+	return res.stauts, cjson.decode(body)
 end
+
+
+function _M._make_path(self, ...) 
+    local path = table.concat({...}, '/')
+    ngx.log(ngx.ERR, '...........path: ', path)
+    return '/' .. path
+end
+
 
 function _M.info(self, params)
 	_, data = self:_perform_request('GET', '/', params, nil)
@@ -59,7 +68,12 @@ function _M.ping(self, params)
 end
 
 
-function _M.search(self, index, doc_type, body, params)
+function _M.search(self, index, doc_type, params, body)
+    if doc_type and not index then
+        index = '_all'
+    end
+    local _, data = self:_perform_request('GET', self:_make_path(index, doc_type, '_search'), params, cjson.encode(body))
+    return data
 end
 
 
