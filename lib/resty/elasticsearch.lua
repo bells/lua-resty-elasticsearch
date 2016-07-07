@@ -83,9 +83,9 @@ end
 function _M.ping(self, params)
 	local res, err = self:_perform_request('HEAD', '/', params)
 	if not res then
-		return false
+		return false, err
     end
-	return true
+	return true, ''
 end
 
 
