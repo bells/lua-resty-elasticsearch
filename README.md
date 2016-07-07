@@ -8,15 +8,60 @@ ElasticSearch client for for [OpenResty](http://openresty.org/) / [ngx_lua](http
 
 # API
 
-* [new]
-* [ping]
-* [info]
-* [search]
+* [new](#new)
+* [ping](#ping)
+* [info](#info)
+* [search](#search)
 
 ## Synopsis
 
 ``` lua
+lua_package_path "/path/to/lua-resty-http,lua-resty-elasticsearch/lib/?.lua;;";
+
+server {
+    location /test_es {
+        content_by_lua '
+            local cjson = require "cjson"
+            local elasticsearch = require "resty.elasticsearch"
+            es = elasticsearch:new({"http://172.18.5.64:9200"})
+
+            local status, data = es:info()
+            ngx.say(cjson.encode(data))
+            ngx.say("---------------------------")
+            local body = {query={match_all={}}}
+            local status, data = es:search({doc_type="products"})
+            ngx.say(cjson.encode(data))
+            ngx.say("---------------------------")
+            local status, data = es.cat:health()
+            ngx.say(data)
+        ';
+    }
+}
 ```
+
+## new
+
+`syntax: es = elasticsearch:new()`
+
+Creates the elasticsearch object. 
+
+## ping
+
+`syntax: ok, err = es:ping()`
+
+Returns True if the cluster is up, False otherwise. 
+
+## info
+
+`syntax: status, data = es:info()`
+
+Get the basic info from the current cluster. 
+
+## search
+
+`syntax: status, data = es:search{index="index", doc_type="user", body={query={match_all={}}}}`
+
+Execute a search query and get back search hits that match the query. 
 
 # Copyright and License
 
