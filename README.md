@@ -23,17 +23,31 @@ server {
         content_by_lua '
             local cjson = require "cjson"
             local elasticsearch = require "resty.elasticsearch"
-            es = elasticsearch:new({"http://172.18.5.64:9200"})
+            local es = elasticsearch:new({"http://localhost:9200"})
 
-            local status, data = es:info()
-            ngx.say(cjson.encode(data))
+            local data, err = es:info()
+            if not data then
+                ngx.say("info err: ", err)
+            else
+                ngx.say(cjson.encode(data))
+            end
             ngx.say("---------------------------")
+
             local body = {query={match_all={}}}
-            local status, data = es:search({doc_type="products"})
-            ngx.say(cjson.encode(data))
+            local data, err = es:search({doc_type="products"})
+            if not data then
+                ngx.say("search err: ", err)
+            else
+                ngx.say(cjson.encode(data))
+            end
             ngx.say("---------------------------")
-            local status, data = es.cat:health()
-            ngx.say(data)
+
+            local data, err = es.cat:health()
+            if not data then
+                ngx.say("cat health err: ", err)
+            else
+                ngx.say(data)
+            end
         ';
     }
 }
@@ -53,13 +67,13 @@ Returns True if the cluster is up, False otherwise.
 
 ## info
 
-`syntax: status, data = es:info()`
+`syntax: data, err = es:info()`
 
 Get the basic info from the current cluster. 
 
 ## search
 
-`syntax: status, data = es:search{index="index", doc_type="user", body={query={match_all={}}}}`
+`syntax: data, err = es:search{index="index", doc_type="user", body={query={match_all={}}}}`
 
 Execute a search query and get back search hits that match the query. 
 

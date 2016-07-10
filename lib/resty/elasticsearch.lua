@@ -1,12 +1,19 @@
 local cjson = require "cjson"
 local http = require "resty.http"
-local es_cat = require "resty.es.cat"
+
 local es_utils = require "resty.es.utils" 
+local es_cat = require "resty.es.cat"
+local es_cluster = require "resty.es.cluster"
+local es_indices = require "resty.es.indices"
+local es_nodes = require "resty.es.nodes"
+local es_snapshot = require "resty.es.snapshot"
 
 local str_find = string.find
 local str_sub = string.sub
 local math_random = math.random
 local make_path = es_utils.make_path
+local get_err_str = es_utils.get_err_str
+
 
 local _M = {
 	_VERSION = '0.01'
@@ -26,6 +33,10 @@ function _M.new(self, hosts)
         hosts = hosts,
     }
     es.cat = es_cat:new(es)
+    es.cluster = es_cluster:new(es)
+    es.indices = es_indices:new(es)
+    es.nodes = es_nodes:new(es)
+    es.snapshot = es_snapshot:new(es)
 
 	return setmetatable(es, mt)
 end
@@ -50,6 +61,12 @@ function _M._perform_request(self, http_method, url, params, body)
 	if not res then
 		return nil, err
 	end
+    http_c:set_keepalive()
+    
+    if not ((200 <= res.status) and (res.status < 300)) then
+        return nil, get_err_str(res.status, res.body)
+    end
+
     local response_body = res.body
     local temp_index, _, _ = str_find(res.headers['content-type'], ';')
     local mimetype = str_sub(res.headers['content-type'], 1, temp_index - 1)
@@ -61,8 +78,7 @@ function _M._perform_request(self, http_method, url, params, body)
         return nil, 'Unknown mimetype, unable to deserialize: ' .. mimetype 
     end
 
-    http_c:set_keepalive()
-	return res.status, response_body
+	return response_body, ''
 end
 
 
@@ -71,8 +87,8 @@ end
 --
 ------------------------------------------------------------------------------
 function _M.info(self, params)
-	local status, data = self:_perform_request('GET', '/', params)
-	return status, data
+	local data, err = self:_perform_request('GET', '/', params)
+	return data, err
 end
 
 
@@ -81,8 +97,8 @@ end
 --
 ------------------------------------------------------------------------------
 function _M.ping(self, params)
-	local res, err = self:_perform_request('HEAD', '/', params)
-	if not res then
+	local data, err = self:_perform_request('HEAD', '/', params)
+	if not data then
 		return false, err
     end
 	return true, ''
@@ -94,16 +110,17 @@ end
 --
 ------------------------------------------------------------------------------
 function _M.search(self, s_params)
+    local basic_params, params = deal_params(s_params)
     if s_params.doc_type and not s_params.index then
         s_params.index = '_all'
     end
 
-    local status, data = self:_perform_request(
+    local data, err = self:_perform_request(
         'GET', make_path(s_params.index, s_params.doc_type, '_search'),
         s_params.params, s_params.body
     )
 
-    return status, data
+    return data, err
 end
 
 
@@ -112,23 +129,23 @@ end
 --
 ------------------------------------------------------------------------------
 function _M.search_template(self, s_params)
-    local _, data = self:_perform_request(
+    local data, err = self:_perform_request(
         'GET',
         make_path(s_params.index, s_params.doc_type, '_search', 'template'),
         s_params.params, s_params.body
     )
 
-    return data
+    return data, err
 end
 
 
 function _M.search_shards(self, s_params)
-    local _, data = self:_perform_request(
+    local data, err = self:_perform_request(
         'GET', make_path(s_params.index, s_params.doc_type, '_search_shards'),
         s_params.params
     )
 
-    return data
+    return data, err
 end
 
 
@@ -143,13 +160,13 @@ function _M.explain(self, s_params)
         return nil, 'the id parameter is a required argument.'
     end
 
-    local status, data = self:_perform_request(
+    local data, err = self:_perform_request(
         'GET',
         make_path(s_params.index, s_params.doc_type, s_params.id, '_explain'),
         s_params.params, s_params.body
     )        
 
-    return status, data
+    return data, err
 end
 
 
@@ -164,11 +181,11 @@ function _M.delete(self, s_params)
         return nil, 'the id parameter is a required argument.'
     end
 
-    local status, data = self:_perform_request(
+    local data, err = self:_perform_request(
         'DELETE', make_path(index, doc_type, id), s_params.params
     )
 
-    return status, data
+    return data, err
 end
 
 
@@ -177,12 +194,12 @@ function _M.count(self, s_params)
         s_params.index = '_all'
     end
 
-    local status, data = self:_perform_request(
+    local data, err = self:_perform_request(
         'GET', make_path(s_params.index, s_params.doc_type, '_count'),
         s_params.params, s_params.body
     )
 
-    return status, data
+    return data, err
 end
 
 
@@ -191,12 +208,12 @@ function _M.suggest(self, s_params)
         return nil, 'the body parameter is a required argument.'
     end
 
-    local status, data = self:_perform_request(
+    local data, err = self:_perform_request(
         'POST', make_path(s_params.index, nil, '_suggest'), 
         s_params.params, s_params.body
     )
     
-    return status, data
+    return data, err
 end
 
 

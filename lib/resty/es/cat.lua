@@ -15,11 +15,11 @@ end
 
 
 function _M.health(self, ...)
-    local status, data = self.client:_perform_request(
+    local data, err = self.client:_perform_request(
         'GET', '/_cat/health', {...}, nil
     )
 
-    return status, data
+    return data, err
 end
 
 
