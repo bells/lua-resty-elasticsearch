@@ -13,6 +13,7 @@ local str_sub = string.sub
 local math_random = math.random
 local make_path = es_utils.make_path
 local get_err_str = es_utils.get_err_str
+local deal_params = es_utils.deal_params
 
 
 local _M = {
@@ -87,7 +88,9 @@ end
 --
 ------------------------------------------------------------------------------
 function _M.info(self, params)
-	local data, err = self:_perform_request('GET', '/', params)
+    local _, query_params = deal_params(s_params)
+	local data, err = self:_perform_request('GET', '/', query_params)
+    
 	return data, err
 end
 
@@ -97,7 +100,8 @@ end
 --
 ------------------------------------------------------------------------------
 function _M.ping(self, params)
-	local data, err = self:_perform_request('HEAD', '/', params)
+    local _, query_params = deal_params(s_params)
+	local data, err = self:_perform_request('HEAD', '/', query_params)
 	if not data then
 		return false, err
     end
@@ -110,14 +114,14 @@ end
 --
 ------------------------------------------------------------------------------
 function _M.search(self, s_params)
-    local basic_params, params = deal_params(s_params)
-    if s_params.doc_type and not s_params.index then
-        s_params.index = '_all'
+    local basic_params, query_params = deal_params(s_params, 'index', 'doc_type', 'body')
+    if basic_params.doc_type and not basic_params.index then
+        basic_params.index = '_all'
     end
 
     local data, err = self:_perform_request(
-        'GET', make_path(s_params.index, s_params.doc_type, '_search'),
-        s_params.params, s_params.body
+        'GET', make_path(basic_params.index, basic_params.doc_type, '_search'),
+        query_params, basic_params.body
     )
 
     return data, err
@@ -129,10 +133,11 @@ end
 --
 ------------------------------------------------------------------------------
 function _M.search_template(self, s_params)
+    local basic_params, query_params = deal_params(s_params, 'index', 'doc_type', 'body')
     local data, err = self:_perform_request(
         'GET',
-        make_path(s_params.index, s_params.doc_type, '_search', 'template'),
-        s_params.params, s_params.body
+        make_path(basic_params.index, basic_params.doc_type, '_search', 'template'),
+        query_params, basic_params.body
     )
 
     return data, err
@@ -140,9 +145,10 @@ end
 
 
 function _M.search_shards(self, s_params)
+    local basic_params, query_params = deal_params(s_params, 'index', 'doc_type')
     local data, err = self:_perform_request(
-        'GET', make_path(s_params.index, s_params.doc_type, '_search_shards'),
-        s_params.params
+        'GET', make_path(basic_params.index, basic_params.doc_type, '_search_shards'),
+        query_params
     )
 
     return data, err
@@ -150,20 +156,21 @@ end
 
 
 function _M.explain(self, s_params)
-    if not s_params.index then
+    local basic_params, query_params = deal_params(s_params, 'index', 'doc_type', 'id', 'body')
+    if not basic_params.index then
         return nil, 'the index parameter is a required argument.'
     end
-    if not s_params.doc_type then
+    if not basic_params.doc_type then
         return nil, 'the doc_type parameter is a required argument.'
     end
-    if not s_params.id then
+    if not basic_params.id then
         return nil, 'the id parameter is a required argument.'
     end
 
     local data, err = self:_perform_request(
         'GET',
-        make_path(s_params.index, s_params.doc_type, s_params.id, '_explain'),
-        s_params.params, s_params.body
+        make_path(basic_params.index, basic_params.doc_type, basic_params.id, '_explain'),
+        query_params, basic_params.body
     )        
 
     return data, err
@@ -171,18 +178,20 @@ end
 
 
 function _M.delete(self, s_params)
-    if not s_params.index then
+    local basic_params, query_params = deal_params(s_params, 'index', 'doc_type', 'id')
+    if not basic_params.index then
         return nil, 'the index parameter is a required argument.'
     end
-    if not s_params.doc_type then
+    if not basic_params.doc_type then
         return nil, 'the doc_type parameter is a required argument.'
     end
-    if not s_params.id then
+    if not basic_params.id then
         return nil, 'the id parameter is a required argument.'
     end
 
     local data, err = self:_perform_request(
-        'DELETE', make_path(index, doc_type, id), s_params.params
+        'DELETE', make_path(basic_params.index, basic_params.doc_type, basic_params.id),
+        query_params
     )
 
     return data, err
@@ -190,13 +199,14 @@ end
 
 
 function _M.count(self, s_params)
-    if s_params.doc_type and not s_params.index then
-        s_params.index = '_all'
+    local basic_params, query_params = deal_params(s_params, 'index', 'doc_type', 'body')
+    if basic_params.doc_type and not basic_params.index then
+        basic_params.index = '_all'
     end
 
     local data, err = self:_perform_request(
-        'GET', make_path(s_params.index, s_params.doc_type, '_count'),
-        s_params.params, s_params.body
+        'GET', make_path(basic_params.index, basic_params.doc_type, '_count'),
+        query_params, basic_params.body
     )
 
     return data, err
@@ -204,13 +214,14 @@ end
 
 
 function _M.suggest(self, s_params)
-    if not s_params.body then
+    local basic_params, query_params = deal_params(s_params, 'index', 'body')
+    if not basic_params.body then
         return nil, 'the body parameter is a required argument.'
     end
 
     local data, err = self:_perform_request(
-        'POST', make_path(s_params.index, nil, '_suggest'), 
-        s_params.params, s_params.body
+        'POST', make_path(basic_params.index, '_suggest'), 
+        query_params, basic_params.body
     )
     
     return data, err
